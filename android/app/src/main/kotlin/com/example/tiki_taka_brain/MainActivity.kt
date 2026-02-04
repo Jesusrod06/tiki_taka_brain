@@ -1,0 +1,5 @@
+package com.example.tiki_taka_brain
+
+import io.flutter.embedding.android.FlutterActivity
+
+class MainActivity : FlutterActivity()
