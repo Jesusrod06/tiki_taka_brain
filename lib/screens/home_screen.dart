@@ -1,119 +1,93 @@
-import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:provider/provider.dart';
+import '../game_logic.dart'; 
+import 'game_board.dart';    
 
-class MemoryGameController extends ChangeNotifier {
-  final List<String> _allPlayers = [
-    'Messi', 'CR7', 'Mbappé', 'Haaland', 'Vini Jr', 'Bellingham',
-    'Neymar', 'Salah', 'De Bruyne', 'Lewandowski', 'Kane', 'Rodri',
-    'Modric', 'Kroos', 'Griezmann', 'Bruno F.', 'Son', 'Osimhen'
-  ];
+class HomeScreen extends StatelessWidget {
+  const HomeScreen({super.key});
 
-  List<String> cards = [];
-  List<bool> cardFlips = [];
-  List<bool> cardMatched = [];
-  int? firstIndex;
-  bool isProcessing = false;
-  
-  int score = 0;
-  int attempts = 0; 
-  int highScore = 0;
-  bool isMultiplayer = false;
-  int currentPlayer = 1; 
-  int p1Score = 0;
-  int p2Score = 0;
-  
-  Timer? _timer;
-  int timeLeft = 60;
-  bool isGameOver = false;
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFF0A0E21),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.psychology, 
+              size: 100, 
+              color: Colors.greenAccent
+            ),
+            const SizedBox(height: 20),
+            const Text(
+              'TIKI-TAKA\nBRAIN',
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 40,
+                fontWeight: FontWeight.bold,
+                color: Colors.white,
+                letterSpacing: 2,
+              ),
+            ),
+            const SizedBox(height: 50),
 
-  MemoryGameController() { loadHighScore(); }
+            // Botón Modo Solo
+            _buildMenuButton(
+              context, 
+              label: 'SOLO MODE', 
+              isMulti: false, 
+              color: Colors.greenAccent
+            ),
 
-  Future<void> loadHighScore() async {
-    final prefs = await SharedPreferences.getInstance();
-    highScore = prefs.getInt('highScore') ?? 0;
-    notifyListeners(); 
+            const SizedBox(height: 20),
+
+            // Botón Modo Versus
+            _buildMenuButton(
+              context, 
+              label: 'VERSUS (2P)', 
+              isMulti: true, 
+              color: Colors.blueAccent
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
-  Future<void> saveHighScore(int newScore) async {
-    final prefs = await SharedPreferences.getInstance();
-    if (newScore > highScore) {
-      highScore = newScore;
-      await prefs.setInt('highScore', highScore);
-    }
-  }
+  Widget _buildMenuButton(BuildContext context, {required String label, required bool isMulti, required Color color}) {
+    return SizedBox(
+      width: 250,
+      height: 55,
+      child: ElevatedButton(
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(30),
+          ),
+        ),
+        onPressed: () {
+          // 1. Inicializamos la lógica en el Provider
+          Provider.of<MemoryGameController>(context, listen: false).initializeGame(isMulti);
 
-  void initializeGame(bool multi) {
-    isMultiplayer = multi;
-    cards = [..._allPlayers, ..._allPlayers];
-    cards.shuffle();
-    cardFlips = List.generate(36, (index) => false);
-    cardMatched = List.generate(36, (index) => false);
-    attempts = 0; score = 0; p1Score = 0; p2Score = 0;
-    currentPlayer = 1; isGameOver = false; isProcessing = false;
-    firstIndex = null; timeLeft = multi ? 0 : 90;
-    if (_timer != null) _timer!.cancel();
-    if (!isMultiplayer) startTimer();
-    notifyListeners();
-  }
-
-  void startTimer() {
-    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (timeLeft > 0 && !isGameOver) {
-        timeLeft--;
-        notifyListeners();
-      } else {
-        isGameOver = true;
-        timer.cancel();
-        notifyListeners();
-      }
-    });
-  }
-
-  void onCardTap(int index) {
-    if (isProcessing || cardFlips[index] || cardMatched[index] || isGameOver) return;
-    cardFlips[index] = true;
-    notifyListeners();
-    if (firstIndex == null) {
-      firstIndex = index;
-    } else {
-      isProcessing = true;
-      attempts++;
-      checkMatch(firstIndex!, index);
-    }
-  }
-
-  void checkMatch(int index1, int index2) {
-    if (cards[index1] == cards[index2]) {
-      cardMatched[index1] = true;
-      cardMatched[index2] = true;
-      isProcessing = false;
-      firstIndex = null;
-      if (isMultiplayer) {
-        currentPlayer == 1 ? p1Score++ : p2Score++;
-      } else {
-        score += 10 + (timeLeft ~/ 5);
-      }
-      checkWinCondition();
-    } else {
-      Future.delayed(const Duration(milliseconds: 1000), () {
-        cardFlips[index1] = false;
-        cardFlips[index2] = false;
-        if (isMultiplayer) currentPlayer = currentPlayer == 1 ? 2 : 1;
-        isProcessing = false;
-        firstIndex = null;
-        notifyListeners();
-      });
-    }
-    notifyListeners();
-  }
-
-  void checkWinCondition() {
-    if (cardMatched.every((element) => element)) {
-      isGameOver = true;
-      if (_timer != null) _timer!.cancel();
-      if (!isMultiplayer) saveHighScore(score);
-    }
-    notifyListeners();
+          // 2. Navegamos al tablero pasándole el parámetro obligatorio
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              // AQUÍ ESTABA EL ERROR: Ahora le pasamos 'isMultiplayer' al GameBoard
+              builder: (context) => GameBoard(isMultiplayer: isMulti), 
+            ),
+          );
+        },
+        child: Text(
+          label,
+          style: const TextStyle(
+            fontSize: 18, 
+            fontWeight: FontWeight.bold, 
+            color: Colors.black
+          ),
+        ),
+      ),
+    );
   }
 }
